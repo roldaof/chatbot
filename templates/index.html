@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Autochat Bot</title>
+    <title>Ballance.Bot</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/1.6.5/flowbite.min.css" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/1.6.5/flowbite.min.js"></script>
     <style>
@@ -90,6 +90,17 @@
             padding: 3px;
             box-shadow: 1px 1px 5px #80808057;
         }
+
+        .enabledBtn {
+            color: white;
+        }
+
+        .disabledBtn {
+            color: #A1A1A1; /* Dim the text color too if needed */
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
     </style>
 </head>
 
@@ -100,7 +111,7 @@
             <a href="#" class="flex items-center">
                 <img src="https://seeklogo.com/images/O/open-ai-logo-8B9BFEDC26-seeklogo.com.png" class="h-8 mr-3"
                     alt="Flowbite Logo" />
-                <span class="self-center text-2xl font-semibold whitespace-nowrap dark:text-white">Autochat Bot</span>
+                <span class="self-center text-2xl font-semibold whitespace-nowrap dark:text-white">Ballance.Bot</span>
             </a>
 
 
@@ -116,6 +127,31 @@
             </div>
 
             <div class="bottom">
+
+                <!-- Button group with added spacing and alignment -->
+                <div class="input-buttons space-x-2"> <!-- Tailwind class for spacing between buttons -->
+                    <button id="recordBtn" class="inline-flex justify-center p-2 text-blue-600 rounded-full cursor-pointer hover:bg-blue-100 dark:text-blue-500 dark:hover:bg-gray-600">
+                        <svg class="w-6 h-6 text-blue-600 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9v3a5.006 5.006 0 0 1-5 5h-4a5.006 5.006 0 0 1-5-5V9m7 9v3m-3 0h6M11 3h2a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3h-2a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Z"/>
+                        </svg>
+                    </button>
+                    <button id="stopBtn" class="inline-flex justify-center p-2 text-blue-600 rounded-full cursor-pointer hover:bg-blue-100 dark:text-blue-500 dark:hover:bg-gray-600">
+                        <svg class="w-6 h-6 text-blue-600 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+                            <path fill-rule="evenodd" d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12Zm7.707-3.707a1 1 0 0 0-1.414 1.414L10.586 12l-2.293 2.293a1 1 0 1 0 1.414 1.414L12 13.414l2.293 2.293a1 1 0 0 0 1.414-1.414L13.414 12l2.293-2.293a1 1 0 0 0-1.414-1.414L12 10.586 9.707 8.293Z" clip-rule="evenodd"/>
+                          </svg>                          
+                    </button>
+                    <button>    
+                        <audio id="audioPlayback" controls></audio>
+                    </button>
+                    <button id="uploadBtn" class="inline-flex justify-center p-2 text-blue-600 rounded-full cursor-pointer hover:bg-blue-100 dark:text-blue-500 dark:hover:bg-gray-600">
+                        <svg class="w-6 h-6 text-blue-600 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h3a3 3 0 0 0 0-6h-.025a5.56 5.56 0 0 0 .025-.5A5.5 5.5 0 0 0 7.207 9.021C7.137 9.017 7.071 9 7 9a4 4 0 1 0 0 8h2.167M12 19v-9m0 0-2 2m2-2 2 2"/>
+                        </svg>
+                         Upload Recording  
+                    </button>
+
+                </div>
+
                  <form id="userinputform">
                     <label for="chat" class="sr-only">Your message</label>
                     <div class="flex items-center px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700">
@@ -155,6 +191,18 @@
             event.preventDefault();
             formsubmitted();
         });
+
+        //changing buttons state
+        function toggleButtonState(button, isEnabled) {
+            button.disabled = !isEnabled;
+            if (isEnabled) {
+                button.classList.remove('disabledBtn');
+                button.classList.add('enabledBtn');
+            } else {
+                button.classList.remove('enabledBtn');
+                button.classList.add('disabledBtn');
+            }
+        }
 
         // sending request to python server
         const formsubmitted = async () => {
@@ -219,6 +267,12 @@
                 displayNextLetter()
                 scrollToBottom()
 
+                // Now play the audio
+                if (json.audio) {
+                    let audio = new Audio(`data:audio/mp3;base64,${json.audio}`);
+                    audio.play();
+                }                
+
             }
             else {
                 let message = json.message
@@ -238,7 +292,81 @@
             scrollToBottom()
 
 
-        } 
+        }
+
+        // Set the initial state of buttons when the page loads
+        toggleButtonState(document.getElementById('recordBtn'), true);
+        toggleButtonState(document.getElementById('stopBtn'), false);
+        toggleButtonState(document.getElementById('uploadBtn'), false);
+
+        let audioBlob;
+        let mediaRecorder;
+        let audioChunks = [];
+
+        const audioPlayback = document.getElementById('audioPlayback');
+
+        document.getElementById('recordBtn').addEventListener('click', () => {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.start();
+
+                    mediaRecorder.addEventListener('dataavailable', event => {
+                        audioChunks.push(event.data);
+                    });
+
+                    toggleButtonState(document.getElementById('recordBtn'), false);
+                    toggleButtonState(document.getElementById('stopBtn'), true);
+                })
+                .catch(error => {
+                    console.error('Error accessing the microphone', error);
+                });
+        });
+
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            mediaRecorder.stop();
+
+            mediaRecorder.addEventListener('stop', () => {
+                audioBlob = new Blob(audioChunks, { 'type' : 'audio/ogg' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                audioPlayback.src = audioUrl;
+                audioChunks = [];
+
+                toggleButtonState(document.getElementById('uploadBtn'), true);
+            });
+
+            toggleButtonState(document.getElementById('recordBtn'), true);
+            toggleButtonState(document.getElementById('stopBtn'), false);
+            toggleButtonState(document.getElementById('uploadBtn'), false);
+        });
+
+        // Add a click event listener for the uploadBtn
+        document.getElementById('uploadBtn').addEventListener('click', async () => {
+            if (!audioBlob) {
+                alert('No recording available to upload.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'audio.ogg');
+            formData.append("timestamp", new Date().getTime());
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/audio', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                console.log(result);
+
+                // Handle the response from the server here
+                // ...
+
+            } catch (error) {
+                console.error('Error uploading the recording', error);
+            }
+        });
     </script>
 </body>
 
