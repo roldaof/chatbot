@@ -147,7 +147,6 @@
                         <svg class="w-6 h-6 text-blue-600 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h3a3 3 0 0 0 0-6h-.025a5.56 5.56 0 0 0 .025-.5A5.5 5.5 0 0 0 7.207 9.021C7.137 9.017 7.071 9 7 9a4 4 0 1 0 0 8h2.167M12 19v-9m0 0-2 2m2-2 2 2"/>
                         </svg>
-                         Upload Recording  
                     </button>
 
                 </div>
@@ -172,7 +171,13 @@
                         </button>
                     </div>
                 </form>
-              
+
+                <label class="inline-flex items-center cursor-pointer">
+                    <input id="audio_response" type="checkbox" value="" class="sr-only peer">
+                    <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Audio Response</span>
+                </label>
+                  
                 <span class="downwarning">Remember Your Chat will not be saved, it will be lost upon reloading.</span>
             </div>
         </div>
@@ -224,13 +229,18 @@
             scrollToBottom()
             document.getElementById('userinput').value = ""
             document.getElementById('userinput').placeholder = "Wait . . ."
+            
+            const audioResponse = document.getElementById('audio_response').checked;
 
             const response = await fetch("http://127.0.0.1:5000/data", {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ data: userinput })
+                body: JSON.stringify({
+                    data: userinput,
+                    audio_response: audioResponse
+                })
 
 
             });
@@ -317,6 +327,7 @@
 
                     toggleButtonState(document.getElementById('recordBtn'), false);
                     toggleButtonState(document.getElementById('stopBtn'), true);
+                    toggleButtonState(document.getElementById('uploadBtn'), false);
                 })
                 .catch(error => {
                     console.error('Error accessing the microphone', error);
@@ -331,13 +342,11 @@
                 const audioUrl = URL.createObjectURL(audioBlob);
                 audioPlayback.src = audioUrl;
                 audioChunks = [];
-
-                toggleButtonState(document.getElementById('uploadBtn'), true);
             });
 
             toggleButtonState(document.getElementById('recordBtn'), true);
             toggleButtonState(document.getElementById('stopBtn'), false);
-            toggleButtonState(document.getElementById('uploadBtn'), false);
+            toggleButtonState(document.getElementById('uploadBtn'), true);
         });
 
         // Add a click event listener for the uploadBtn
@@ -347,21 +356,72 @@
                 return;
             }
 
+            let upperdiv = document.getElementById('upperid')
+            const audioUrl = URL.createObjectURL(audioBlob);
+            upperdiv.innerHTML = upperdiv.innerHTML + `<div class="message">
+                <div class="usermessagediv">
+                        <div class="usermessage">
+                            <audio src=${audioUrl} controls></audio>
+                        </div>
+                </div>
+            </div>`
+            scrollToBottom()
+
             const formData = new FormData();
             formData.append('audio', audioBlob, 'audio.ogg');
-            formData.append("timestamp", new Date().getTime());
+            formData.append('timestamp', new Date().getTime());
+            formData.append('audio_response',document.getElementById('audio_response').checked);
 
             try {
                 const response = await fetch('http://127.0.0.1:5000/audio', {
                     method: 'POST',
                     body: formData
                 });
+ 
+                const json = await response.json();
                 
-                const result = await response.json();
-                console.log(result);
+                toggleButtonState(document.getElementById('uploadBtn'), false);
+                // Clear the audioBlob and reset the audioPlayback element
+                audioBlob = null; // Clear the reference to the blob
+                const currentSrc = audioPlayback.src;
+                audioPlayback.src = ''; // Clear the src attribute
+                URL.revokeObjectURL(currentSrc); // Free up the memory by revoking the object URL
 
-                // Handle the response from the server here
-                // ...
+                if (json.response) {
+                let message = json.message
+                message = message.toString()
+      
+                upperdiv.innerHTML = upperdiv.innerHTML + `<div class="message">
+                <div class="appmessagediv">
+                    <div class="appmessage" id="temp">
+                        
+                    </div>
+                </div>
+            </div>`
+                let temp = document.getElementById('temp')
+                let index = 0
+                function displayNextLetter() {
+                    scrollToBottom()
+                    if (index < message.length) {
+                        temp.innerHTML = temp.innerHTML + message[index];
+                        index++;
+                        setTimeout(displayNextLetter, 30);
+                    } else {
+                        temp.removeAttribute('id')
+                        sendbtn.disabled = false
+                        userinputarea.disabled = false
+                    }
+                }
+                displayNextLetter()
+                scrollToBottom()
+
+                // Now play the audio
+                if (json.audio) {
+                    let audio = new Audio(`data:audio/mp3;base64,${json.audio}`);
+                    audio.play();
+                }                
+
+            }
 
             } catch (error) {
                 console.error('Error uploading the recording', error);
