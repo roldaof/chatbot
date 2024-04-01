@@ -41,10 +41,10 @@ CORS(app)
 def get_audio(text, voice="Charlie", model="eleven_turbo_v2"):
     try:
         # Generate the audio using the client
-        audio = ELEVENLABS_API_KEY.generate(text=text, voice=voice, model=model)
+        text = elevenLabsClient.generate(text=text, voice=voice, model=model)
 
         # Convert audio generatior to bytes
-        audio_bytes = b"".join(list(audio))
+        audio_bytes = b"".join(list(text))
 
         # Encode the audio bytes to a base64 string
         audio_base64 = b64encode(audio_bytes).decode('utf-8')
@@ -77,13 +77,12 @@ def get_transcript(audio):
         # STEP 3: Call the transcribe_file method with the text payload and options
         response = deepgramClient.listen.prerecorded.v("1").transcribe_file(payload, options)
 
-        # STEP 4: Print the response
-        print(response.to_json(indent=4))
+        transcript = response["results"]["channels"][0]["alternatives"][0]["transcript"]
 
         # Now that the file is closed, it's safe to delete it
         os.remove(temp_filename)
 
-        return response
+        return transcript
     except Exception as e:
         os.remove(temp_filename)
         print(f"Error generating transcript: {e}")
@@ -118,9 +117,10 @@ def get_data():
     text=data.get('data')
     user_input = text
     try:
+        print("get_text_response")
         # Get response from openai assistant
         output = get_text_response(user_input)
-
+        print("get_audio")
         # Get the audio content from elevenlabs
         audio_base64 = get_audio(output)
 
