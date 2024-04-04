@@ -185,6 +185,7 @@
 
 
     <script>
+        let thread_id = "";
         // for scrolling messages
         function scrollToBottom() {
             var div = document.getElementById("upperid");
@@ -239,6 +240,7 @@
                 },
                 body: JSON.stringify({
                     data: userinput,
+                    thread_id: thread_id,
                     audio_response: audioResponse
                 })
 
@@ -250,9 +252,10 @@
    
 
             if (json.response) {
+                thread_id=json.thread_id.toString()
+                
                 let message = json.message
                 message = message.toString()
-      
                 upperdiv.innerHTML = upperdiv.innerHTML + `<div class="message">
                 <div class="appmessagediv">
                     <div class="appmessage" id="temp">
@@ -371,6 +374,7 @@
             formData.append('audio', audioBlob, 'audio.ogg');
             formData.append('timestamp', new Date().getTime());
             formData.append('audio_response',document.getElementById('audio_response').checked);
+            formData.append('thread_id',thread_id);
 
             try {
                 const response = await fetch('http://127.0.0.1:5000/audio', {
@@ -388,9 +392,9 @@
                 URL.revokeObjectURL(currentSrc); // Free up the memory by revoking the object URL
 
                 if (json.response) {
+                thread_id=json.thread_id.toString()
                 let message = json.message
                 message = message.toString()
-      
                 upperdiv.innerHTML = upperdiv.innerHTML + `<div class="message">
                 <div class="appmessagediv">
                     <div class="appmessage" id="temp">

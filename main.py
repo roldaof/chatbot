@@ -1,10 +1,8 @@
 import os
+import time
 from flask import Flask, render_template,jsonify,request
 from flask_cors import CORS
-from langchain_openai import OpenAI
-from langchain.agents.openai_assistant import OpenAIAssistantRunnable
-#from langchain.chains import ConversationChain
-#from langchain.memory import ConversationSummaryBufferMemory
+from openai import OpenAI
 from dotenv import load_dotenv
 from elevenlabs import play
 from elevenlabs.client import ElevenLabs
@@ -25,10 +23,8 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 # Initialize APIs
 deepgramClient = DeepgramClient(DEEPGRAM_API_KEY)
 elevenLabsClient = ElevenLabs(api_key=ELEVENLABS_API_KEY)
+openAiClient = OpenAI(api_key=OPENAI_API_KEY)
 asAgentValue=True
-assistant = OpenAIAssistantRunnable(assistant_id=ASSISTANT_ID_KEY,asAgent=asAgentValue)
-llm = OpenAI()
-#memory = ConversationSummaryBufferMemory(llm=llm, max_token_limit=100)
 options = PrerecordedOptions(
     model="nova-2",
     smart_format=True,
@@ -51,7 +47,7 @@ def get_audio(text, voice="Charlie", model="eleven_turbo_v2"):
 
         return audio_base64
     except Exception as e:
-        print(f"Error generating audio: {e}")
+        print(f"Error generating audio get_audio: {e}")
         return None
     
 
@@ -79,28 +75,51 @@ def get_transcript(audio):
         
         return transcript
     except Exception as e:
-        print(f"Error generating transcript: {e}")
+        print(f"Error generating transcript get_transcript: {e}")
         return None
     finally:
         # Always attempt to remove the temporary file
         if os.path.exists(temp_filename):
             os.remove(temp_filename)
 
+def wait_on_run(run, thread_id):
+    while run.status == "queued" or run.status == "in_progress":
+        run = openAiClient.beta.threads.runs.retrieve(
+            thread_id=thread_id,
+            run_id=run.id,
+        )
+        time.sleep(0.5)
+    return run
 
-def get_text_response(text):
+def submit_message(thread_id, user_message):
+    openAiClient.beta.threads.messages.create(
+        thread_id=thread_id, role="user", content=user_message
+    )
+    run = openAiClient.beta.threads.runs.create(
+        thread_id=thread_id,
+        assistant_id=ASSISTANT_ID_KEY,
+    )
+    wait_on_run(run, thread_id)
+    return run
+
+def get_response(thread_id):
+    response = openAiClient.beta.threads.messages.list(thread_id=thread_id, order="desc", limit=1)
+    return response.data[0].content[0].text.value
+
+def get_text_response(text,thread_id=None):
     try:
-        # conversation = ConversationChain(llm=llm,memory=memory)
-        assistant_output = assistant.invoke({"content": text})
-        # output = conversation.predict(input=user_input)
-        # print(assistant_output[0])
-        # print(assistant_output[0].content[0].text.value)
-
-        # Extract the 'output' value
-        output = assistant_output[0].content[0].text.value
-
+        print(f"text: {text} thread_id: {thread_id}")
+        if thread_id is None or not thread_id.strip():
+            print(f"if thread_id == None or thread_id.isspace()")
+            thread = openAiClient.beta.threads.create()
+            thread_id = thread.id
+        print(f"thread_id: {thread_id}")
+        submit_message(thread_id, text)
+        response = get_response(thread_id)
+        output = [response,thread_id]
         return output
     except Exception as e:
-        print(f"Error generating assistant reponse: {e}")
+        print(f"Error generating assistant reponse get_text_response: {e}")
         return None
 
 
@@ -113,34 +132,34 @@ def index():
 def get_data():
     data = request.get_json()
     text=data.get('data')
+    thread_id=data.get('thread_id')
     audio_response=data.get('audio_response')
     user_input = text
     try:
         # Get response from openai assistant
-        output = get_text_response(user_input)
-
+        output = get_text_response(user_input,thread_id)
+        
         if not audio_response:
-            return jsonify({"response": True, "message": output})
+            return jsonify({"response": True, "message": output[0], "thread_id": output[1]})
         
         # Get the audio content from elevenlabs
-        audio_base64 = get_audio(output)
-
-        #memory.save_context({"input": user_input}, {"output": output})
+        audio_base64 = get_audio(output[0])
 
         if audio_base64:
-            return jsonify({"response": True, "message": output, "audio": audio_base64})
+            return jsonify({"response": True, "message": output[0], "thread_id": output[1], "audio": audio_base64})
         else:
             return jsonify({"response": False, "message": "Failed to generate audio"})
 
     except Exception as e:
         print(e)
-        error_message = f'Error: {str(e)}'
+        error_message = f'Error get_data: {str(e)}'
         return jsonify({"message":error_message,"response":False})
 
 
 @app.route('/audio', methods=['POST'])
 def get_data_audio():
     audio_file = request.files.get('audio')
+    thread_id = request.form.get('thread_id')
     audio_response = request.form.get('audio_response') == 'true'
     try:
         # get transcript from deepgram
@@ -150,24 +169,22 @@ def get_data_audio():
             return jsonify({"message":"Failed to generate transcript","response":False})
         
         # get response from openai assistant
-        output = get_text_response(user_input)
+        output = get_text_response(user_input,thread_id)
 
         if not audio_response:
-            return jsonify({"response": True, "message": output})
+            return jsonify({"response": True, "message": output[0], "thread_id": output[1]})
         
         # Get the audio content from elevenlabs
-        audio_base64 = get_audio(output)
-
-        #memory.save_context({"input": user_input}, {"output": output})
+        audio_base64 = get_audio(output[0])
 
         if audio_base64:
-            return jsonify({"response": True, "message": output, "audio": audio_base64})
+            return jsonify({"response": True, "message": output[0], "thread_id": output[1]})
         else:
             return jsonify({"response": False, "message": "Failed to generate audio"})
 
     except Exception as e:
         print(e)
-        error_message = f'Error: {str(e)}'
+        error_message = f'Error get_data_audio: {str(e)}'
         return jsonify({"message":error_message,"response":False})
 
 
