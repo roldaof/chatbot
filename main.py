@@ -4,6 +4,7 @@ from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 from openai import OpenAI
 from dotenv import load_dotenv
+from elevenlabs import Voice, VoiceSettings, play
 from elevenlabs.client import ElevenLabs
 from base64 import b64encode
 from deepgram import DeepgramClient, PrerecordedOptions, FileSource
@@ -16,6 +17,7 @@ DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
 ASSISTANT_ID_KEY = os.getenv('ASSISTANT_ID_KEY')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+VOICE_SELECTION = os.getenv('VOICE_SELECTION', 'voice_charlie') 
 
 # Initialize API clients
 deepgramClient = DeepgramClient(DEEPGRAM_API_KEY)
@@ -29,8 +31,23 @@ CORS(app)
 # Predefined options for Deepgram
 options = PrerecordedOptions(model="nova-2", smart_format=True)
 
+# ElevenLabs Voices
+voices = {
+    'voice_derrina': Voice(
+        voice_id='TKlqM5ytcsdPXYU4Swqr',
+        settings=VoiceSettings(stability=0.71, similarity_boost=0.5, style=0.0, use_speaker_boost=True)),
+    'voice_miriam': Voice(
+        voice_id='DyZHUM5da4jjmqQlYgWk',
+        settings=VoiceSettings(stability=0.71, similarity_boost=0.5, style=0.0, use_speaker_boost=True)),
+    'voice_david': Voice(
+        voice_id='NR6fcZCaDJUeAEWdU9am',
+        settings=VoiceSettings(stability=0.71, similarity_boost=0.5, style=0.0, use_speaker_boost=True)),
+    'voice_charlie': "Charlie"
+}
 
-def get_audio(text, voice="Charlie", model="eleven_turbo_v2"):
+selected_voice = voices.get(VOICE_SELECTION, voices['voice_charlie'])  # Fallback to 'voice_david' if not found.
+
+def get_audio(text, voice=selected_voice, model="eleven_turbo_v2"):
     try:
         audio_stream = elevenLabsClient.generate(text=text, voice=voice, model=model)
         audio_bytes = b"".join(list(audio_stream))
@@ -75,7 +92,6 @@ def wait_on_run(run, thread_id):
 def submit_message(thread_id, user_message):
     openAiClient.beta.threads.messages.create(thread_id=thread_id, role="user", content=user_message)
     run = openAiClient.beta.threads.runs.create(thread_id=thread_id, assistant_id=ASSISTANT_ID_KEY)
-    print(run)
     return wait_on_run(run, thread_id)
 
 
@@ -108,7 +124,6 @@ def index():
 @app.route('/data', methods=['POST'])
 def get_data():
     data = request.get_json()
-    print(data, flush=True)
     output = get_text_response(data.get('data'), data.get('thread_id'))
 
     if not output:
