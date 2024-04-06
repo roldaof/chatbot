@@ -75,6 +75,7 @@ def wait_on_run(run, thread_id):
 def submit_message(thread_id, user_message):
     openAiClient.beta.threads.messages.create(thread_id=thread_id, role="user", content=user_message)
     run = openAiClient.beta.threads.runs.create(thread_id=thread_id, assistant_id=ASSISTANT_ID_KEY)
+    print(run)
     return wait_on_run(run, thread_id)
 
 
@@ -88,6 +89,7 @@ def get_text_response(text, thread_id=None):
         if not thread_id:
             thread = openAiClient.beta.threads.create()
             thread_id = thread.id
+        print(thread_id)
         submit_message(thread_id, text)
         return [get_response(thread_id), thread_id]
     except Exception as e:
@@ -103,6 +105,7 @@ def index():
 @app.route('/data', methods=['POST'])
 def get_data():
     data = request.get_json()
+    print(data)
     output = get_text_response(data.get('data'), data.get('thread_id'))
 
     if not output:
