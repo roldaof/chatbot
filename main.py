@@ -36,7 +36,7 @@ def get_audio(text, voice="Charlie", model="eleven_turbo_v2"):
         audio_bytes = b"".join(list(audio_stream))
         return b64encode(audio_bytes).decode('utf-8')
     except Exception as e:
-        print(f"Error generating audio: {e}")
+        print(f"Error generating audio: {e}", flush=True)
         return None
 
 
@@ -80,8 +80,12 @@ def submit_message(thread_id, user_message):
 
 
 def get_response(thread_id):
-    response = openAiClient.beta.threads.messages.list(thread_id=thread_id, order="desc", limit=1)
-    return response.data[0].content[0].text.value
+    try:
+        response = openAiClient.beta.threads.messages.list(thread_id=thread_id, order="desc", limit=1)
+        return response.data[0].content[0].text.value
+    except Exception as e:
+        print(f"Error in get_response: {e}", flush=True)
+        return None
 
 
 def get_text_response(text, thread_id=None):
@@ -89,7 +93,6 @@ def get_text_response(text, thread_id=None):
         if not thread_id:
             thread = openAiClient.beta.threads.create()
             thread_id = thread.id
-        print(thread_id, flush=True)
         submit_message(thread_id, text)
         return [get_response(thread_id), thread_id]
     except Exception as e:
