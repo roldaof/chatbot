@@ -58,7 +58,7 @@ def get_transcript(audio):
         response = deepgramClient.listen.prerecorded.v("1").transcribe_file(payload, options)
         return response["results"]["channels"][0]["alternatives"][0]["transcript"]
     except Exception as e:
-        print(f"Error generating transcript: {e}")
+        print(f"Error generating transcript: {e}", flush=True)
         return None
     finally:
         if os.path.exists(temp_filename):
@@ -89,11 +89,11 @@ def get_text_response(text, thread_id=None):
         if not thread_id:
             thread = openAiClient.beta.threads.create()
             thread_id = thread.id
-        print(thread_id)
+        print(thread_id, flush=True)
         submit_message(thread_id, text)
         return [get_response(thread_id), thread_id]
     except Exception as e:
-        print(f"Error in get_text_response: {e}")
+        print(f"Error in get_text_response: {e}", flush=True)
         return None
 
 
@@ -105,7 +105,7 @@ def index():
 @app.route('/data', methods=['POST'])
 def get_data():
     data = request.get_json()
-    print(data)
+    print(data, flush=True)
     output = get_text_response(data.get('data'), data.get('thread_id'))
 
     if not output:
